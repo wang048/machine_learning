@@ -1,0 +1,108 @@
+#導入資料
+#Import scikit-learn dataset library
+from sklearn import datasets
+import pandas as pd
+#Load dataset
+hr = pd.read_excel("I:\CA\HRD\T&D_臨時工作區\PYTHON預測用.xls")
+#print(hr)
+
+#分類資料
+import pandas as pd
+data = pd.DataFrame({
+    "部門代號":hr.部門代號,
+    "職稱":hr.職稱,
+    "性別":hr.性別,
+    "外部年資":hr.外部年資,
+    "年齡":hr.年齡,
+    "外籍":hr.外籍,
+    "廠區名稱":hr.廠區名稱,
+    "最高學歷":hr.最高學歷,
+    "通訊地址":hr.通訊地址,
+    "離職狀態":hr.離職狀態,
+})
+#列出頭10筆
+data.head(5)
+
+#建立電腦學習&測試資料
+from sklearn.model_selection import train_test_split
+X=data[['部門代號','職稱','性別',"外部年資","年齡","外籍","廠區名稱","最高學歷","通訊地址"]]
+y=data['離職狀態']
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3) # 70% training and 30% test
+from sklearn.ensemble import RandomForestClassifier
+clf=RandomForestClassifier(n_estimators=2000)
+clf.fit(X_train, y_train)
+y_pred=clf.predict(X_test)
+
+#跑結果
+from sklearn import metrics
+print("Accuracy", metrics.accuracy_score(y_test,y_pred))
+
+
+#跑單筆資料驗證結果
+clf.predict([[142101,15,2,6.6,33,1,4,4,3]])
+
+#跑直方圖形看峰態
+%matplotlib inline
+import matplotlib.pyplot as plt
+from matplotlib.font_manager import FontProperties
+font = FontProperties(fname=r"C:\Windows\Fonts\simsun.ttc", size=14)
+plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei'] 
+#可以將不同的參與與離職率做圖
+#pd.crosstab(hr.職稱,hr.離職狀態).plot(kind='bar')
+# plt.title('Turnover Frequency for Department')
+# plt.xlabel('department',fontproperties=font)
+# plt.ylabel('Frequency of Turnover',fontproperties=font)
+# plt.savefig('department_bar_chart')
+num_bins = 10
+hr.hist(bins=num_bins, figsize=(20,15))
+plt.savefig("hr_histogram_plots")
+plt.show()
+
+#抓出特徵值影響率
+import numpy as np
+feature_labels = np.array(['部門代號', '職稱', '性別', '外部年資', '年齡', '外籍', '廠區名稱', '最高學歷', '通訊地址'])
+importance = clf.feature_importances_
+feature_indexes_by_importance = importance.argsort()
+for index in feature_indexes_by_importance:
+    print('{}-{:.2f}%'.format(feature_labels[index], (importance[index] *100.0)))
+
+
+#十層驗證
+from sklearn import model_selection
+from sklearn.model_selection import cross_val_score
+kfold = model_selection.KFold(n_splits=10, random_state=7)
+modelCV = RandomForestClassifier()
+scoring = 'accuracy'
+results = model_selection.cross_val_score(modelCV, X_train, y_train, cv=kfold, scoring=scoring)
+print("10-fold cross validation average accuracy: %.3f" % (results.mean()))
+
+from sklearn.metrics import classification_report
+print(classification_report(y_test, clf.predict(X_test)))
+
+y_pred = clf.predict(X_test)
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
+forest_cm = metrics.confusion_matrix(y_pred, y_test, [1,0])
+sns.heatmap(forest_cm, annot=True, fmt='.2f',xticklabels = ["Left", "Stayed"] , yticklabels = ["Left", "Stayed"] )
+plt.ylabel('True class')
+plt.xlabel('Predicted class')
+plt.title('Random Forest')
+plt.savefig('random_forest')
+
+
+#跑ROC曲線
+from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_curve
+clf_roc_auc = roc_auc_score(y_test, clf.predict(X_test))
+clf_fpr, clf_tpr, clf_thresholds = roc_curve(y_test, clf.predict_proba(X_test)[:,1])
+plt.figure()
+plt.plot(clf_fpr, clf_tpr, label='Random Forest (area = %0.2f)' % clf_roc_auc)
+plt.plot([0, 1], [0, 1],'r--')
+plt.xlim([0.0, 1.0])
+plt.ylim([0.0, 1.05])
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('Receiver operating characteristic')
+plt.legend(loc="lower right")
+plt.savefig('ROC')
+plt.show()
